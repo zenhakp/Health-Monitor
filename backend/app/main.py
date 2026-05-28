@@ -12,7 +12,7 @@ import asyncio
 import sys
 import asyncio
 from app.kafka.consumer import start_consumer
-from app.api import auth, patients, vitals, alerts, reports, chatbot, admin, messages
+from app.api import auth, patients, vitals, alerts, reports, chatbot, admin, messages, profile
 
 # Fix for asyncpg on Windows Python 3.10+
 if sys.platform == "win32":
@@ -37,6 +37,7 @@ app.include_router(reports.router, prefix="/api/v1/reports", tags=["reports"])
 app.include_router(chatbot.router, prefix="/api/v1/chatbot", tags=["chatbot"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(messages.router, prefix="/api/v1/messages", tags=["messages"])
+app.include_router(profile.router, prefix="/api/v1/profile", tags=["profile"])
 
 app.add_middleware(
     CORSMiddleware,

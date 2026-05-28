@@ -184,6 +184,7 @@ async def get_contacts(
             "email": u.email,
             "role": str(u.role.value if hasattr(u.role, 'value') else u.role),
             "last_seen": _format_datetime(u.last_login),
+            "avatar_url": u.avatar_url or "",
             "unread_count": unread,
         })
     return contacts

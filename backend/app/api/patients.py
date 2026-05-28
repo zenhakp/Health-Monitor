@@ -28,6 +28,7 @@ class PatientSummary(BaseModel):
     id: str
     email: str
     full_name: str
+    avatar_url: str = ""
     phone: str = ""
     address: str = ""
     role: str
@@ -72,6 +73,7 @@ async def list_patients(
             id=str(p.id),
             email=p.email,
             full_name=decrypt(p.full_name_encrypted),
+            avatar_url=p.avatar_url or "",
             phone=decrypt(p.phone_encrypted) if p.phone_encrypted else "",
             address=decrypt(p.address_encrypted) if p.address_encrypted else "",
             role=str(p.role.value if hasattr(p.role, "value") else p.role),
@@ -117,12 +119,11 @@ async def get_patient(
         resource_id=patient_id,
         ip_address=request.client.host,
     )
-
-    # In backend/app/api/patients.py, update both list and get_patient responses:
     return {
         "id": str(patient.id),
         "email": patient.email,
         "full_name": decrypt(patient.full_name_encrypted),
+        "avatar_url": patient.avatar_url or "",
         "phone": decrypt(patient.phone_encrypted) if patient.phone_encrypted else "",
         "address": decrypt(patient.address_encrypted) if patient.address_encrypted else "",
         "role": str(patient.role.value if hasattr(patient.role, 'value') else patient.role),
@@ -225,6 +226,7 @@ async def get_patient_summary(
     return {
         "id": str(patient.id),
         "full_name": decrypt(patient.full_name_encrypted),
+        "avatar_url": patient.avatar_url or "",
         "email": patient.email,
         "phone": decrypt(patient.phone_encrypted) if patient.phone_encrypted else "",
         "address": decrypt(patient.address_encrypted) if patient.address_encrypted else "",

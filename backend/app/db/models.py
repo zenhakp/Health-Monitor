@@ -29,9 +29,11 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
+    avatar_url = Column(Text, nullable=True)
 
     vitals = relationship("VitalReading", back_populates="patient",
                           foreign_keys="VitalReading.patient_id")
+    
 
 
 class VitalReading(Base):

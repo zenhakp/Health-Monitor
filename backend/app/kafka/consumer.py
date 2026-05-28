@@ -39,7 +39,7 @@ Provide: 1) What this likely indicates clinically, 2) Immediate concern level, 3
 Be concise and clinical. Do not diagnose — flag for physician review."""
 
         response = client.chat.completions.create(
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=200,
             temperature=0.3,
