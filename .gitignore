@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Environment files — NEVER commit these
+.env
+*.env
+!.env.example
+
+# Backend
+backend/reports/
+backend/models/*.pt
+backend/models/*.json
+backend/ml/data/*.csv
+backend/.venv/
+
+# Next.js
+frontend/.next/
+frontend/node_modules/
+frontend/.env.local
+frontend/out/
+
+# ML data
+ml/data/
+ml/models/*.pt
+
+# Docker volumes (local dev artifacts)
+postgres_data/
+redis_data/
+grafana_data/
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+
+# Pytest
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Keys / secrets — absolute safety net
+*.pem
+*.key
+*.p12
+id_rsa
+*.secret
