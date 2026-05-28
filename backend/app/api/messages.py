@@ -6,7 +6,7 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import Column, String, DateTime, Boolean, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import json
 import asyncio
@@ -19,6 +19,14 @@ from app.core.encryption import decrypt, encrypt
 router = APIRouter()
 
 _message_subscribers: dict[str, list[asyncio.Queue]] = {}
+
+
+def _format_datetime(value: datetime | None) -> str | None:
+    if not value:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
 
 
 class Message(Base):
@@ -175,7 +183,7 @@ async def get_contacts(
             "full_name": decrypt(u.full_name_encrypted),
             "email": u.email,
             "role": str(u.role.value if hasattr(u.role, 'value') else u.role),
-            "last_seen": str(u.last_login) if u.last_login else None,
+            "last_seen": _format_datetime(u.last_login),
             "unread_count": unread,
         })
     return contacts

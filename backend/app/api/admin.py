@@ -6,6 +6,7 @@ from app.db.models import User, UserRole, AuditLog
 from app.core.security import require_role
 from app.core.encryption import decrypt
 from app.core.audit import write_audit_log
+from datetime import datetime, timezone
 import uuid
 
 router = APIRouter()
@@ -112,6 +113,14 @@ async def delete_user(
     return {"message": f"User {name} permanently deleted"}
 
 
+def _format_datetime(value: datetime | None) -> str | None:
+    if not value:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
+
+
 def _format_user(u: User) -> dict:
     return {
         "id": str(u.id),
@@ -122,5 +131,5 @@ def _format_user(u: User) -> dict:
         "role": str(u.role.value if hasattr(u.role, 'value') else u.role),
         "is_active": u.is_active,
         "created_at": str(u.created_at),
-        "last_login": str(u.last_login) if u.last_login else None,
+        "last_login": _format_datetime(u.last_login),
     }

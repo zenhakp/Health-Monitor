@@ -20,6 +20,14 @@ from app.core.audit import write_audit_log
 router = APIRouter()
 
 
+def _format_datetime(value: datetime | None) -> str | None:
+    if not value:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
@@ -118,7 +126,7 @@ async def login(
         raise HTTPException(status_code=403, detail="Account is disabled")
 
     # Update last login
-    user.last_login = datetime.now(timezone.utc)
+    user.last_login = datetime.utcnow()
     await db.commit()
 
     token_data = {
@@ -184,7 +192,7 @@ async def get_me(
         "address": decrypt(user.address_encrypted) if user.address_encrypted else "",
         "role": str(user.role.value if hasattr(user.role, 'value') else user.role),
         "created_at": user.created_at,
-        "last_login": user.last_login,
+        "last_login": _format_datetime(user.last_login),
     }
 
 @router.delete("/account")
