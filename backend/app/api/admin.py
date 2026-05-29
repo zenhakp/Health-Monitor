@@ -130,6 +130,6 @@ def _format_user(u: User) -> dict:
         "address": decrypt(u.address_encrypted) if u.address_encrypted else "",
         "role": str(u.role.value if hasattr(u.role, 'value') else u.role),
         "is_active": u.is_active,
-        "created_at": str(u.created_at),
+        "created_at": _format_datetime(u.created_at),
         "last_login": _format_datetime(u.last_login),
     }

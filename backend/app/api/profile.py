@@ -123,7 +123,7 @@ async def get_profile(
         "address": decrypt(user.address_encrypted) if user.address_encrypted else "",
         "role": role,
         "avatar_url": user.avatar_url or "",
-        "created_at": str(user.created_at),
-        "last_login": str(user.last_login) if user.last_login else None,
+        "created_at": _format_datetime(user.created_at),
+        "last_login": _format_datetime(user.last_login),
         "is_active": user.is_active,
     }

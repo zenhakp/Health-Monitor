@@ -12,8 +12,16 @@ from app.db.models import Alert, User
 from app.core.security import require_doctor, get_current_user, get_current_user_optional
 from app.core.audit import write_audit_log
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 from app.core.encryption import decrypt
+
+
+def _format_datetime(value: datetime | None) -> str | None:
+    if not value:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 router = APIRouter()
@@ -129,10 +137,46 @@ async def get_patient_alerts(
             "is_acknowledged": a.is_acknowledged,
             "acknowledged_by_name": a.acknowledged_by_name,
             "doctor_notes": a.doctor_notes,
-            "acknowledged_at": str(a.acknowledged_at) if a.acknowledged_at else None,
-            "created_at": str(a.created_at),
+            "acknowledged_at": _format_datetime(a.acknowledged_at) if a.acknowledged_at else None,
+            "created_at": _format_datetime(a.created_at),
         }
         for a in alerts
+    ]
+
+
+@router.get("/sos")
+async def get_sos_alerts(
+    limit: int = 100,
+    unacknowledged_only: bool = True,
+    current_user: dict = Depends(require_doctor),
+    db: AsyncSession = Depends(get_db)
+):
+    """Return all SOS emergency alerts across patients for doctors."""
+    query = select(Alert, User.full_name_encrypted).join(User, Alert.patient_id == User.id)
+    query = query.where(Alert.anomaly_type == "sos_emergency")
+    if unacknowledged_only:
+        query = query.where(Alert.is_acknowledged == False)
+    query = query.order_by(desc(Alert.created_at)).limit(min(limit, 200))
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    return [
+        {
+            "id": str(alert.id),
+            "patient_id": str(alert.patient_id),
+            "patient_name": decrypt(user_name),
+            "vital_id": str(alert.vital_id),
+            "severity": alert.severity,
+            "anomaly_type": alert.anomaly_type,
+            "llm_interpretation": alert.llm_interpretation,
+            "is_acknowledged": alert.is_acknowledged,
+            "acknowledged_by_name": alert.acknowledged_by_name,
+            "doctor_notes": alert.doctor_notes,
+            "acknowledged_at": _format_datetime(alert.acknowledged_at) if alert.acknowledged_at else None,
+            "created_at": _format_datetime(alert.created_at),
+        }
+        for alert, user_name in rows
     ]
 
 

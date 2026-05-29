@@ -78,7 +78,7 @@ async def list_patients(
             address=decrypt(p.address_encrypted) if p.address_encrypted else "",
             role=str(p.role.value if hasattr(p.role, "value") else p.role),
             is_active=p.is_active,
-            created_at=str(p.created_at),
+            created_at=_format_datetime(p.created_at),
             last_login=_format_datetime(p.last_login),
             recent_anomaly=recent_anomaly,
         ))
@@ -128,7 +128,7 @@ async def get_patient(
         "address": decrypt(patient.address_encrypted) if patient.address_encrypted else "",
         "role": str(patient.role.value if hasattr(patient.role, 'value') else patient.role),
         "is_active": patient.is_active,
-        "created_at": str(patient.created_at),
+        "created_at": _format_datetime(patient.created_at),
         "last_login": _format_datetime(patient.last_login),
     }
 
@@ -219,7 +219,7 @@ async def get_patient_summary(
             "blood_pressure_dia": float(decrypt(latest_vital.blood_pressure_dia_encrypted)),
             "temperature": float(decrypt(latest_vital.temperature_encrypted)),
             "respiratory_rate": float(decrypt(latest_vital.respiratory_rate_encrypted)),
-            "timestamp": str(latest_vital.timestamp),
+            "timestamp": _format_datetime(latest_vital.timestamp),
             "is_anomaly": latest_vital.is_anomaly,
         }
 
@@ -231,8 +231,8 @@ async def get_patient_summary(
         "phone": decrypt(patient.phone_encrypted) if patient.phone_encrypted else "",
         "address": decrypt(patient.address_encrypted) if patient.address_encrypted else "",
         "is_active": patient.is_active,
-        "created_at": str(patient.created_at),
-        "last_login": str(patient.last_login) if patient.last_login else None,
+        "created_at": _format_datetime(patient.created_at),
+        "last_login": _format_datetime(patient.last_login),
         "stats": {
             "total_readings": len(all_readings),
             "anomaly_count": len(anomaly_readings),

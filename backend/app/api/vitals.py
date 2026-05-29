@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 from app.db.database import get_db
@@ -18,6 +18,14 @@ from app.simulator.vitals_simulator import VitalsSimulator
 _simulator_tasks: dict = {}
 
 router = APIRouter()
+
+
+def _format_datetime(value: datetime | None) -> str | None:
+    if not value:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 class VitalsInput(BaseModel):
@@ -49,7 +57,7 @@ def decrypt_vital(reading: VitalReading) -> dict:
     return {
         "id": str(reading.id),
         "patient_id": str(reading.patient_id),
-        "timestamp": str(reading.timestamp),
+        "timestamp": _format_datetime(reading.timestamp),
         "heart_rate": float(decrypt(reading.heart_rate_encrypted)),
         "spo2": float(decrypt(reading.spo2_encrypted)),
         "blood_pressure_sys": float(decrypt(reading.blood_pressure_sys_encrypted)),
@@ -105,7 +113,7 @@ async def ingest_vitals(
     await publish_vitals(body.patient_id, {
         "reading_id": str(reading.id),
         "patient_id": body.patient_id,
-        "timestamp": str(reading.timestamp),
+        "timestamp": _format_datetime(reading.timestamp),
         "heart_rate": body.heart_rate,
         "spo2": body.spo2,
         "blood_pressure_sys": body.blood_pressure_sys,

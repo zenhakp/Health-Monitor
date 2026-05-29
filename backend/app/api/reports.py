@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID
 import uuid
 import os
 import aiofiles
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.db.database import get_db
 from app.db.models import Base
@@ -22,6 +22,14 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 router = APIRouter()
 
 REPORTS_DIR = "reports"
+
+
+def _format_datetime(value: datetime | None) -> str | None:
+    if not value:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 os.makedirs(REPORTS_DIR, exist_ok=True)
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 _bearer = HTTPBearer(auto_error=False)
@@ -124,7 +132,7 @@ async def get_patient_reports(
             "original_name": r.original_name,
             "file_type": r.file_type,
             "description": r.description,
-            "uploaded_at": str(r.uploaded_at),
+            "uploaded_at": _format_datetime(r.uploaded_at),
         }
         for r in reports
     ]

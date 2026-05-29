@@ -86,7 +86,7 @@ async def send_message(
         "sender_name": sender_name,
         "content": body.content,
         "is_read": False,
-        "created_at": str(msg.created_at),
+        "created_at": _format_datetime(msg.created_at),
     }
 
     # Push to receiver's SSE stream
@@ -142,7 +142,7 @@ async def get_conversation(
             "sender_name": name_map.get(str(m.sender_id), "Unknown"),
             "content": decrypt(m.content_encrypted),
             "is_read": m.is_read,
-            "created_at": str(m.created_at),
+            "created_at": _format_datetime(m.created_at),
         }
         for m in messages
     ]
