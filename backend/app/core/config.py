@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 8000
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001"]
 
     # Database
     DATABASE_URL: str
@@ -33,6 +33,10 @@ class Settings(BaseSettings):
 
     # Groq
     GROQ_API_KEY: str
+    MAILJET_API_KEY: str = ""
+    MAILJET_SECRET_KEY: str = ""
+    MAILJET_FROM_EMAIL: str = ""
+    MAILJET_FROM_NAME: str = "VitalWatch"
 
     @field_validator("ENCRYPTION_KEY")
     @classmethod

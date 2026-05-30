@@ -126,7 +126,7 @@ async def get_patient_alerts(
     result = await db.execute(query)
     alerts = result.scalars().all()
 
-    return [
+    alerts_out = [
         {
             "id": str(a.id),
             "patient_id": str(a.patient_id),
@@ -142,6 +142,31 @@ async def get_patient_alerts(
         }
         for a in alerts
     ]
+
+    return _dedupe_alerts(alerts_out)
+
+
+# Helper to dedupe alerts (avoid showing very similar alerts at same time)
+def _dedupe_alerts(alert_list: list[dict]) -> list[dict]:
+    seen = set()
+    out = []
+    for a in alert_list:
+        text = (a.get("llm_interpretation") or a.get("anomaly_type") or "")
+        text = " ".join(str(text).split())
+        created_at = a.get("created_at") or ""
+        if isinstance(created_at, str):
+            created_at = created_at[:16]
+        key = (
+            a.get("anomaly_type"),
+            text[:120],
+            a.get("vital_id") or a.get("patient_id") or "",
+            created_at,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(a)
+    return out
 
 
 @router.get("/sos")
@@ -161,7 +186,7 @@ async def get_sos_alerts(
     result = await db.execute(query)
     rows = result.all()
 
-    return [
+    alerts = [
         {
             "id": str(alert.id),
             "patient_id": str(alert.patient_id),
@@ -178,6 +203,9 @@ async def get_sos_alerts(
         }
         for alert, user_name in rows
     ]
+
+    # Deduplicate very similar alerts emitted at the same time
+    return _dedupe_alerts(alerts)
 
 
 class AcknowledgeRequest(BaseModel):

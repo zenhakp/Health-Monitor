@@ -3,12 +3,14 @@ from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel, EmailStr
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 import uuid
 
 from app.db.database import get_db
 from app.db.models import User, UserRole
+from app.core.config import settings
 from app.core.security import (
     hash_password, verify_password,
     create_access_token, create_refresh_token, decode_token,
@@ -16,6 +18,13 @@ from app.core.security import (
 )
 from app.core.encryption import encrypt, decrypt
 from app.core.audit import write_audit_log
+import random
+import string
+from datetime import timedelta
+from app.db.models import OTPCode
+from app.core.email import send_otp_email
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -27,6 +36,12 @@ def _format_datetime(value: datetime | None) -> str | None:
         value = value.replace(tzinfo=timezone.utc)
     return value.isoformat()
 
+def generate_otp() -> str:
+    return "".join(random.choices(string.digits, k=6))
+
+class OTPVerifyRequest(BaseModel):
+    user_id: str
+    otp_code: str
 
 class RegisterRequest(BaseModel):
     email: EmailStr
@@ -54,6 +69,29 @@ class TokenResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+def _mask_email(email: str) -> str:
+    """Mask email for display: doctor@example.com → d****r@e*****.com"""
+    try:
+        local, domain = email.split("@", 1)
+        if len(local) <= 2:
+            masked_local = local[0] + "*"
+        elif len(local) <= 4:
+            masked_local = local[0] + "*" * (len(local) - 2) + local[-1]
+        else:
+            masked_local = local[0] + local[1] + "*" * (len(local) - 3) + local[-1]
+
+        domain_parts = domain.split(".")
+        main_domain = domain_parts[0]
+        if len(main_domain) <= 2:
+            masked_domain = main_domain
+        else:
+            masked_domain = main_domain[0] + "*" * (len(main_domain) - 2) + main_domain[-1]
+
+        tld = ".".join(domain_parts[1:])
+        return f"{masked_local}@{masked_domain}.{tld}"
+    except Exception:
+        return "your registered email"
 
 @router.post("/register", status_code=201)
 async def register(
@@ -101,53 +139,104 @@ async def register(
 
     return {"message": "User registered successfully", "user_id": str(user.id)}
 
-
-@router.post("/login", response_model=TokenResponse)
-async def login(
-    request: Request,
-    body: LoginRequest,
-    db: AsyncSession = Depends(get_db)
-):
+@router.post("/login")
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(body.password, user.hashed_password):
-        await write_audit_log(
-            action="LOGIN_FAILED",
-            user_id=body.email,
-            user_role="unknown",
-            resource="auth",
-            ip_address=request.client.host,
-            success=False,
-        )
+        await write_audit_log(action="LOGIN_FAILED", user_id=body.email,
+            user_role="unknown", resource="auth", ip_address=request.client.host, success=False)
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is disabled")
 
-    # Update last login
+    role = str(user.role.value if hasattr(user.role, 'value') else user.role)
+
+    # For doctors: return OTP challenge instead of token directly
+    if role == "doctor":
+        otp_code = generate_otp()
+
+        # Clean up any existing unused OTPs for this user first
+        existing_otps_result = await db.execute(
+            select(OTPCode).where(
+                OTPCode.user_id == user.id,
+                OTPCode.used == False,
+            )
+        )
+        existing_otps = existing_otps_result.scalars().all()
+        for old_otp in existing_otps:
+            old_otp.used = True  # invalidate all previous OTPs
+
+        otp = OTPCode(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            code=otp_code,
+            expires_at=datetime.utcnow() + timedelta(minutes=10),
+        )
+        db.add(otp)
+        await db.commit()
+
+        doctor_name = decrypt(user.full_name_encrypted)
+
+        # Send email in thread pool to avoid blocking the async event loop
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            email_sent = await loop.run_in_executor(
+                executor,
+                send_otp_email,
+                user.email,
+                otp_code,
+                doctor_name
+            )
+
+        await write_audit_log(
+            action="OTP_SENT",
+            user_id=str(user.id),
+            user_role=role,
+            resource="auth",
+            ip_address=request.client.host,
+            details={"email_sent": email_sent},
+        )
+
+        if not email_sent:
+            logger.error(f"OTP email failed for {user.email}")
+            # Don't fail the request — OTP is saved in DB
+            # Return a specific error flag so frontend can show appropriate message
+            return {
+                "requires_otp": True,
+                "user_id": str(user.id),
+                "masked_email": _mask_email(user.email),
+                "email_delivered": False,
+                "message": "Code generated but email delivery failed. Contact your administrator.",
+            }
+
+        return {
+            "requires_otp": True,
+            "user_id": str(user.id),
+            "masked_email": _mask_email(user.email),
+            "email_delivered": True,
+            "message": f"Verification code sent to {_mask_email(user.email)}",
+        }
+
+    # Patients and admin login directly
     user.last_login = datetime.utcnow()
     await db.commit()
+    token_data = {"sub": str(user.id), "email": user.email, "role": role}
 
-    token_data = {
-        "sub": str(user.id),
-        "email": user.email,
-        "role": user.role.value if hasattr(user.role, 'value') else user.role,
-    }
-
-    await write_audit_log(
-        action="LOGIN_SUCCESS",
-        user_id=str(user.id),
-        user_role=str(user.role),
-        resource="auth",
-        ip_address=request.client.host,
-    )
+    await write_audit_log(action="LOGIN_SUCCESS", user_id=str(user.id),
+        user_role=role, resource="auth", ip_address=request.client.host)
 
     return TokenResponse(
         access_token=create_access_token(token_data),
         refresh_token=create_refresh_token(token_data),
-        role=str(user.role.value if hasattr(user.role, 'value') else user.role),
+        role=role,
     )
+
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -234,3 +323,63 @@ async def heartbeat(
         user.last_login = datetime.utcnow()
         await db.commit()
     return {"status": "ok"}
+
+
+_otp_attempts: dict = {}  # user_id -> attempt count
+
+
+@router.post("/verify-otp", response_model=TokenResponse)
+async def verify_otp(body: OTPVerifyRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    user_id = body.user_id
+
+    # Rate limit: max 5 attempts per user
+    attempts = _otp_attempts.get(user_id, 0)
+    if attempts >= 5:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many incorrect attempts. Please sign in again to receive a new code."
+        )
+
+    result = await db.execute(
+        select(OTPCode).where(
+            OTPCode.user_id == uuid.UUID(user_id),
+            OTPCode.code == body.otp_code,
+            OTPCode.used == False,
+            OTPCode.expires_at > datetime.utcnow(),
+        )
+    )
+    otp = result.scalar_one_or_none()
+
+    if not otp:
+        _otp_attempts[user_id] = attempts + 1
+        remaining = 5 - _otp_attempts[user_id]
+        raise HTTPException(
+            status_code=401,
+            detail=f"Invalid or expired code. {remaining} attempt{'s' if remaining != 1 else ''} remaining."
+        )
+
+    # Success — clear attempts
+    _otp_attempts.pop(user_id, None)
+    otp.used = True
+
+    user_result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    user = user_result.scalar_one_or_none()
+    user.last_login = datetime.utcnow()
+    await db.commit()
+
+    role = str(user.role.value if hasattr(user.role, 'value') else user.role)
+    token_data = {"sub": str(user.id), "email": user.email, "role": role}
+
+    await write_audit_log(
+        action="LOGIN_SUCCESS_2FA",
+        user_id=str(user.id),
+        user_role=role,
+        resource="auth",
+        ip_address=request.client.host,
+    )
+
+    return TokenResponse(
+        access_token=create_access_token(token_data),
+        refresh_token=create_refresh_token(token_data),
+        role=role,
+    )

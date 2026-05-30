@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel, EmailStr
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import os
 import base64
@@ -18,6 +18,14 @@ router = APIRouter()
 
 AVATARS_DIR = "avatars"
 os.makedirs(AVATARS_DIR, exist_ok=True)
+
+
+def _format_datetime(value: datetime | None) -> str | None:
+    if not value:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
 
 
 class UpdateProfileRequest(BaseModel):

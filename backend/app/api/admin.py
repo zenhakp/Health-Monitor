@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from app.db.database import get_db
 from app.db.models import User, UserRole, AuditLog
+from app.db.models import Alert
 from app.core.security import require_role
 from app.core.encryption import decrypt
 from app.core.audit import write_audit_log
@@ -133,3 +134,32 @@ def _format_user(u: User) -> dict:
         "created_at": _format_datetime(u.created_at),
         "last_login": _format_datetime(u.last_login),
     }
+
+
+@router.get("/active-alerts")
+async def get_active_alerts_count(
+    current_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    # Count unacknowledged alerts, deduplicated by anomaly_type+minute+interpretation snippet
+    result = await db.execute(select(Alert).where(Alert.is_acknowledged == False))
+    alerts = result.scalars().all()
+
+    deduped = _dedupe_alerts(alerts)
+    return {"active_alerts": len(deduped)}
+
+
+def _dedupe_alerts(alerts: list[Alert]) -> list[Alert]:
+    seen = set()
+    unique_alerts = []
+    for alert in alerts:
+        key = (
+            alert.anomaly_type if hasattr(alert, "anomaly_type") else None,
+            (alert.llm_interpretation or "")[:120],
+            alert.created_at.isoformat()[:16] if alert.created_at else "",
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_alerts.append(alert)
+    return unique_alerts

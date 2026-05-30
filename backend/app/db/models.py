@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, Boolean, DateTime, Text, Enum, ForeignKey
+from sqlalchemy import Column, String, Float, Boolean, DateTime, Text, Enum, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, DeclarativeBase
 from datetime import datetime
@@ -93,3 +93,39 @@ class AuditLog(Base):
     ip_address = Column(String(45), nullable=True)
     success = Column(Boolean, default=True)
     timestamp = Column(DateTime, nullable=False)
+
+class MedicationReminder(Base):
+    __tablename__ = "medication_reminders"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    patient_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    medication_name_encrypted = Column(Text, nullable=False)
+    dosage_encrypted = Column(Text, nullable=True)
+    schedule_times = Column(String(255), nullable=False)  # JSON: ["08:00", "20:00"]
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PatientBaseline(Base):
+    __tablename__ = "patient_baselines"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    patient_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True)
+    avg_heart_rate = Column(Float, nullable=True)
+    avg_spo2 = Column(Float, nullable=True)
+    avg_blood_pressure_sys = Column(Float, nullable=True)
+    avg_blood_pressure_dia = Column(Float, nullable=True)
+    avg_temperature = Column(Float, nullable=True)
+    avg_respiratory_rate = Column(Float, nullable=True)
+    calculated_at = Column(DateTime, nullable=True)
+    readings_count = Column(Integer, default=0)
+
+class OTPCode(Base):
+    __tablename__ = "otp_codes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    code = Column(String(6), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
