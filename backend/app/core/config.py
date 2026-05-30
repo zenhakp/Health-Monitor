@@ -15,12 +15,13 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     # Redis
-    REDIS_URL: str = "redis://localhost:6379"
+    REDIS_URL: str = "rediss://default:gQAAAAAAAaeQAAIgcDEzMzVjNGJlMWExNTk0NjZjYTAyZDg4ZTNmZmIxODkzZg@good-wildcat-108432.upstash.io:6379"
 
     # Kafka
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
     KAFKA_VITALS_TOPIC: str = "vitals-stream"
     KAFKA_ALERTS_TOPIC: str = "health-alerts"
+    USE_KAFKA: bool = True
 
     # JWT
     JWT_SECRET_KEY: str

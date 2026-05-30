@@ -75,11 +75,19 @@ async def security_headers(request: Request, call_next):
 @app.on_event("startup")
 async def startup():
     await create_tables()
-    from app.db.database import seed_admin
     await seed_admin()
-    asyncio.create_task(start_consumer())
-    print("Kafka consumer task scheduled")
+    print("Database ready")
 
+    from app.core.config import settings
+    use_kafka = getattr(settings, 'USE_KAFKA', True)
+
+    if use_kafka:
+        asyncio.create_task(start_consumer())
+        print("Kafka consumer started")
+    else:
+        from app.ml.anomaly_detector import detector
+        loaded = detector.load()
+        print(f"Direct processing mode — model loaded: {loaded}")
 
 # Mount Prometheus metrics endpoint
 metrics_app = make_asgi_app()

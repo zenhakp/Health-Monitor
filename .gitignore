@@ -18,10 +18,12 @@ build/
 
 # Backend
 backend/reports/
-backend/models/*.pt
-backend/models/*.json
+# backend/models/*.pt
+# backend/models/*.json
 backend/ml/data/*.csv
 backend/.venv/
+backend/.env.production
+backend/.env
 
 # Next.js
 frontend/.next/
