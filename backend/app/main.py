@@ -7,7 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from prometheus_client import make_asgi_app, Counter, Histogram
 import time
 from app.core.config import settings
-from app.db.database import create_tables
+from app.db.database import create_tables, seed_admin
 import asyncio
 import sys
 import asyncio
