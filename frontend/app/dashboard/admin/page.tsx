@@ -563,11 +563,15 @@ export default function AdminPanel() {
                         {details.notes && (
                           <div className="space-y-2">
                             <div className="text-xs text-gray-500 leading-relaxed">
-                              {expandedDecisionIds.includes(log.id)
-                                ? `“${details.notes}”`
-                                : `“${details.notes.slice(0, 160)}${
-                                    details.notes.length > 160 ? "..." : ""
-                                  }”`}
+                              <>
+                                &quot;
+                                {expandedDecisionIds.includes(log.id)
+                                  ? details.notes
+                                  : `${details.notes.slice(0, 160)}${
+                                      details.notes.length > 160 ? "..." : ""
+                                    }`}
+                                &quot;
+                              </>
                             </div>
                             {details.notes.length > 160 && (
                               <button
