@@ -5,6 +5,10 @@ from app.db.models import Base
 from datetime import datetime
 from sqlalchemy import select
 
+print("=" * 50)
+print("DATABASE_URL:", settings.DATABASE_URL)
+print("=" * 50)
+
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.APP_ENV == "development",
