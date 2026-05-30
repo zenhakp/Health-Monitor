@@ -222,7 +222,7 @@ function UserDetailModal({
                       )}
                       {alert.doctor_notes && (
                         <div className="text-xs text-gray-400 bg-dark-700 rounded-lg p-2 leading-relaxed">
-                          "{alert.doctor_notes}"
+                          &quot;{alert.doctor_notes}&quot;
                         </div>
                       )}
                     </div>
