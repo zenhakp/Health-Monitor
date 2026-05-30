@@ -369,7 +369,7 @@ export default function LoginPage() {
 
               <div className="mt-6 text-center">
                 <span className="text-gray-500 text-sm">
-                  Don't have an account?{" "}
+                  Don&apos;t have an account?{" "}
                 </span>
                 <Link
                   href="/register"
